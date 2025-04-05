@@ -7,6 +7,39 @@ from django.http import JsonResponse
 import pandas as pd
 from io import StringIO
 
+
+def get_color_from_confidence(confidence):
+    if pd.isna(confidence):
+        return "#cccccc"
+    if isinstance(confidence, str):
+        confidence = confidence.lower()
+        if confidence == "l":
+            return "#1f77b4"
+        elif confidence == "n":
+            return "#ff7f0e" 
+        elif confidence == "h":
+            return "#d62728"
+    elif isinstance(confidence, (int, float)):
+        if confidence < 30:
+            return "#1f77b4"
+        elif confidence < 80:
+            return "#ff7f0e"
+        else:
+            return "#d62728"
+    return "#cccccc"
+
+def get_color_from_frp(frp):
+    if pd.isna(frp):
+        return "#cccccc"
+    elif frp < 10:
+        return "#a6cee3"
+    elif frp < 30:
+        return "#1f78b4"
+    elif frp < 50:
+        return "#fb9a99"
+    else:
+        return "#e31a1c"
+
 def fetch_api_data(token, date="", satellite='VIIRS_NOAA20_NRT', days='2'):
         
         url = f"https://firms.modaps.eosdis.nasa.gov/api/area/csv/{token}/{satellite}/world/{days}/{date}"
@@ -18,12 +51,12 @@ def fetch_api_data(token, date="", satellite='VIIRS_NOAA20_NRT', days='2'):
             print("Error fetching data:", e)
             return {"type": "FeatureCollection", "features": []}
 
-def convert_api_to_geojson(data):
+def convert_api_to_geojson(data, color_code):
     df = pd.read_csv(StringIO(data))
-    features = []
+    wildfires = []
+    possibilities = set()
     for _, row in df.iterrows():
-        feature = {
-            "type": "Feature",
+        wildfire = {
             "properties": {
                 "bright_ti4": row.get("bright_ti4"),
                 "scan": row.get("scan"),
@@ -38,15 +71,19 @@ def convert_api_to_geojson(data):
                 "frp": row.get("frp"),
                 "daynight": row.get("daynight")
             },
-            "geometry": {
-            "type": "Point",
-            "coordinates": [row.get("longitude"), row.get("latitude")]
-            }
+            "coordinates": [row.get("longitude"), row.get("latitude")],
         }
-        features.append(feature)
+        conf = row.get("confidence")
+        possibilities.add(wildfire['properties']['confidence'])
+        if color_code == 'confidence':
+            wildfire['color'] = get_color_from_confidence(row.get("confidence"))
+        elif color_code == 'frp':
+            wildfire['color'] = get_color_from_frp(row.get("frp"))
+
+        wildfires.append(wildfire)
+    print("Possibilities:", possibilities)
     return {
-        "type": "FeatureCollection",
-        "features": features
+        "wildfires": wildfires
     }
 
 @controller(name='home')
@@ -69,12 +106,9 @@ class WildfireVisualizerMap(MapLayout):
             options=[
                 ('LANDSAT (NRT) [US/Canada Only]', 'LANDSAT_NRT'),
                 ('MODIS (URT+NRT)', 'MODIS_NRT'),
-                ('MODIS (SP)', 'MODIS_SP'),
                 ('VIIRS NOAA-20 (URT+NRT)', 'VIIRS_NOAA20_NRT'),
-                ('VIIRS NOAA-20 (SP)', 'VIIRS_NOAA20_SP'),
                 ('VIIRS NOAA-21 (URT+NRT)', 'VIIRS_NOAA21_NRT'),
                 ('VIIRS S-NPP (URT+NRT)', 'VIIRS_SNPP_NRT'),
-                ('VIIRS S-NPP (SP)', 'VIIRS_SNPP_SP')
             ]
          )
 
@@ -89,6 +123,16 @@ class WildfireVisualizerMap(MapLayout):
             display_text='Date',
             name='date',
             initial=pd.Timestamp.now().date(),
+        )
+
+        color_code = SelectInput(
+            display_text='Color Code',
+            name='color_code',
+            multiple=False,
+            options=[
+                ('Confidence', 'confidence'),
+                ('Fire Radiative Power (FRP)', 'frp'),
+            ]
         )
 
         submit_button = Button(
@@ -106,6 +150,7 @@ class WildfireVisualizerMap(MapLayout):
         context['satellite'] = satellite
         context['days'] = days
         context['date'] = date
+        context['color_code'] = color_code
         context['submit_button'] = submit_button
         
         return context
@@ -116,6 +161,7 @@ class WildfireVisualizerMap(MapLayout):
         satellite = form_data.get('satellite')
         days = form_data.get('days')
         date = form_data.get('date')
+        color_code = form_data.get('color_code')
 
         if not satellite:
              return JsonResponse({'error': 'Satellite is required.'}, status=400)
@@ -133,7 +179,7 @@ class WildfireVisualizerMap(MapLayout):
         if 'Error' in raw_data:
             return JsonResponse({'error': 'Error fetching data from API'}, status=500)
         
-        geojson_data = convert_api_to_geojson(raw_data)
+        geojson_data = convert_api_to_geojson(raw_data, color_code)
 
         return JsonResponse({
             'geojson': geojson_data,

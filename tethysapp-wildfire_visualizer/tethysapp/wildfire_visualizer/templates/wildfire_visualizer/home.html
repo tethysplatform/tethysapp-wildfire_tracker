@@ -2,9 +2,10 @@
 {% load static %}
 {% load tethys %}
 
-{% block header_buttons %}
-  <div class="header-button glyphicon-button" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Help">
-    <a data-bs-toggle="modal" data-bs-target="#help-modal"><i class="bi bi-question-circle"></i></a>
+{% block app_content %}
+  {{ block.super }}
+  <div id="loading-overlay">
+    <img id="loading-img" src="{% static 'wildfire_visualizer/images/fire-loading-animation.gif' %}" alt="Loading...">
   </div>
 {% endblock %}
 
@@ -18,6 +19,7 @@
         {% gizmo SelectInput satellite %}
         {% gizmo SelectInput days %}
         {% gizmo DatePicker date %}
+        {% gizmo SelectInput color_code %}
         {% gizmo Button submit_button %}
       </form>
       
