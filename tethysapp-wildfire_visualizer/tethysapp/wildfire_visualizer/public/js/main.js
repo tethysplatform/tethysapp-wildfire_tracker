@@ -3,11 +3,26 @@ let currentLayer;
 
 var $updateForm;
 var $loadingOverlay;
+var $legendDiv;
 
+// Add a legend to the map
+function add_legend_map(map) {
+    try {
+        let legend_element = document.getElementById('legend');
+        let control_panel = new ol.control.Control({
+            element: legend_element
+        });
+        map.addControl(control_panel);
+    }  
+    catch (error) {
+        console.error(error);
+    }
+}
 
 $(document).ready(function () {
     map = TETHYS_MAP_VIEW.getMap();
 
+    add_legend_map(map);
 
     $updateForm = $('#update-form');
     $loadingOverlay = $("#loading-overlay");
@@ -67,6 +82,26 @@ $(document).ready(function () {
                 });
 
                 map.addLayer(currentLayer);
+
+                $legendDiv = $('#legend');
+
+                $legendDiv.empty();
+
+                let legendContentHtml = `<table class='table table-striped table-bordered table-condensed'>
+                                        <thead><tr><th colspan='2'>${data.legend.title}</th></tr></thead>
+                                        <tbody>`;
+
+                for (let [key, value] of Object.entries(data.legend.legend_data)) {
+                    legendContentHtml += `<tr>
+                                            <td><div style='width: 20px; height: 20px; background-color: ${value}; border-radius: 50%;'></div></td>
+                                            <td>${key}</td>
+                                            </tr>`;  
+                };
+
+                legendContentHtml += "</tbody></table>";
+
+                $legendDiv.html(legendContentHtml);
+                $legendDiv.show();
             }
         }).catch(error => {
             console.error(error);

@@ -11,6 +11,7 @@ from io import StringIO
 def get_color_from_confidence(confidence):
     if pd.isna(confidence):
         return "#cccccc"
+    
     if isinstance(confidence, str):
         confidence = confidence.lower()
         if confidence == "l":
@@ -19,6 +20,7 @@ def get_color_from_confidence(confidence):
             return "#ff7f0e" 
         elif confidence == "h":
             return "#d62728"
+        
     elif isinstance(confidence, (int, float)):
         if confidence < 30:
             return "#1f77b4"
@@ -26,6 +28,7 @@ def get_color_from_confidence(confidence):
             return "#ff7f0e"
         else:
             return "#d62728"
+    
     return "#cccccc"
 
 def get_color_from_frp(frp):
@@ -54,7 +57,6 @@ def fetch_api_data(token, date="", satellite='VIIRS_NOAA20_NRT', days='2'):
 def convert_api_to_geojson(data, color_code):
     df = pd.read_csv(StringIO(data))
     wildfires = []
-    possibilities = set()
     for _, row in df.iterrows():
         wildfire = {
             "properties": {
@@ -73,18 +75,47 @@ def convert_api_to_geojson(data, color_code):
             },
             "coordinates": [row.get("longitude"), row.get("latitude")],
         }
-        conf = row.get("confidence")
-        possibilities.add(wildfire['properties']['confidence'])
+        
         if color_code == 'confidence':
             wildfire['color'] = get_color_from_confidence(row.get("confidence"))
+            if isinstance(row.get("confidence"), str):
+                type_of_confidence = "string"
+            else:
+                type_of_confidence = "numeric"
+
         elif color_code == 'frp':
             wildfire['color'] = get_color_from_frp(row.get("frp"))
 
         wildfires.append(wildfire)
-    print("Possibilities:", possibilities)
-    return {
-        "wildfires": wildfires
+
+    legend_data_options = {
+        "confidence": {
+            "string": {
+                "Low": "#1f77b4",
+                "Nominal": "#ff7f0e",
+                "High": "#d62728"
+            },
+            "numeric": {
+                "<30": "#1f77b4",
+                "<80": "#ff7f0e",
+                ">=80": "#d62728"
+            }
+        }, 
+        "frp": {
+            "<10": "#a6cee3",
+            "<30": "#1f78b4",
+            "<50": "#fb9a99",
+            ">=50": "#e31a1c"
+        }
     }
+
+    if color_code == "confidence":
+        legend_data = legend_data_options[color_code][type_of_confidence]
+    else:
+        legend_data = legend_data_options[color_code]
+
+    legend_title = "Confidence" if color_code == "confidence" else "Fire Radiative Power (FRP)"
+    return {"wildfires": wildfires}, {"title": legend_title, "legend_data": legend_data}
 
 @controller(name='home')
 class WildfireVisualizerMap(MapLayout):
@@ -179,10 +210,11 @@ class WildfireVisualizerMap(MapLayout):
         if 'Error' in raw_data:
             return JsonResponse({'error': 'Error fetching data from API'}, status=500)
         
-        geojson_data = convert_api_to_geojson(raw_data, color_code)
+        geojson_data, legend = convert_api_to_geojson(raw_data, color_code)
 
         return JsonResponse({
             'geojson': geojson_data,
+            'legend': legend,
             'satellite': satellite,
             'days': days,
             'date': date
