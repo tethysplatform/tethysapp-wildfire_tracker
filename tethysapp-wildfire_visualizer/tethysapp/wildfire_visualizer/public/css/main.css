@@ -13,7 +13,7 @@
 #loading-overlay {
     position: absolute;
     top: 50%;
-    left: 42%;
+    left: 35%;
     transform: translate(-50%, -60%);
     z-index: 100000;
     display: none;
