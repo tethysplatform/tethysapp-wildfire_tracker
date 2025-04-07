@@ -4,6 +4,9 @@
 
 {% block app_content %}
   {{ block.super }}
+  <div id="popup" class="ol-popup">
+    <div id="popup-content"></div>
+  </div>
   <div id="legend" class="legend"></div>
   <div id="loading-overlay">
     <img id="loading-img" src="{% static 'wildfire_visualizer/images/fire-loading-animation.gif' %}" alt="Loading...">

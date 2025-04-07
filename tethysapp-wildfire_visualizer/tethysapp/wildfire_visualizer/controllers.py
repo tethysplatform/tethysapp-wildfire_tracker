@@ -7,6 +7,49 @@ from django.http import JsonResponse
 import pandas as pd
 from io import StringIO
 
+def format_wildfire_metadata(data):
+    metadata = {}
+    if data.get("acq_date") is not None:
+        metadata["Acquisition Date"] = data.get("acq_date")
+    if data.get("acq_time") is not None:
+        acq_time = str(data.get("acq_time"))
+        acq_time = acq_time[: -2] + ":" + acq_time[-2:]
+        metadata["Acquisition Time"] = acq_time
+    if data.get("satellite") is not None:
+        metadata["Satellite"] = data.get("satellite")
+    if data.get("instrument") is not None:
+        metadata["Instrument"] = data.get("instrument")
+    if data.get("confidence") is not None:
+        if isinstance(data.get("confidence"), str):
+            confidence = str(data.get("confidence")).lower()
+            if confidence == "l":
+                metadata["Confidence"] = "Low"
+            elif confidence == "n":
+                metadata["Confidence"] = "Nominal"
+            elif confidence == "h":
+                metadata["Confidence"] = "High"
+        else:
+            confidence = data.get("confidence")
+            metadata["Confidence"] = confidence           
+    if data.get("frp") is not None:
+        metadata["Fire Radiative Power (FRP)"] = data.get("frp")
+    if data.get("bright_ti4") is not None:
+        metadata["Brightness Temperatrue I4"] = data.get("bright_ti4")
+    if data.get("bright_ti5") is not None:
+        metadata["Brightness Temperature I5"] = data.get("bright_ti5")
+    if data.get("scan") is not None:
+        metadata["Scan"] = data.get("scan")
+    if data.get("track") is not None:
+        metadata["Track"] = data.get("track")
+    if data.get("version") is not None:
+        metadata["Version"] = data.get("version")
+    if data.get("daynight") is not None:
+        if data.get("daynight").lower() == "d":
+            metadata["Day/Night"] = "Day"
+        elif data.get("daynight").lower() == "n":
+            metadata["Day/Night"] = "Night"
+
+    return metadata
 
 def get_color_from_confidence(confidence):
     if pd.isna(confidence):
@@ -35,16 +78,15 @@ def get_color_from_frp(frp):
     if pd.isna(frp):
         return "#cccccc"
     elif frp < 10:
-        return "#a6cee3"
+        return "#33a02c"
     elif frp < 30:
-        return "#1f78b4"
+        return "#1f77b4"
     elif frp < 50:
-        return "#fb9a99"
+        return "#ff7f0e"
     else:
-        return "#e31a1c"
+        return "#d62728"
 
 def fetch_api_data(token, date="", satellite='VIIRS_NOAA20_NRT', days='2'):
-        
         url = f"https://firms.modaps.eosdis.nasa.gov/api/area/csv/{token}/{satellite}/world/{days}/{date}"
         try:
             response = requests.get(url, timeout=10)
@@ -56,26 +98,16 @@ def fetch_api_data(token, date="", satellite='VIIRS_NOAA20_NRT', days='2'):
 
 def convert_api_to_geojson(data, color_code):
     df = pd.read_csv(StringIO(data))
+    
+    has_no_data_color = False
+
     wildfires = []
     for _, row in df.iterrows():
         wildfire = {
-            "properties": {
-                "bright_ti4": row.get("bright_ti4"),
-                "scan": row.get("scan"),
-                "track": row.get("track"),
-                "acq_date": row.get("acq_date"),
-                "acq_time": row.get("acq_time"),
-                "satellite": row.get("satellite"),
-                "instrument": row.get("instrument"),
-                "confidence": row.get("confidence"),
-                "version": row.get("version"),
-                "bright_ti5": row.get("bright_ti5"),
-                "frp": row.get("frp"),
-                "daynight": row.get("daynight")
-            },
+            "metadata": format_wildfire_metadata(row),
             "coordinates": [row.get("longitude"), row.get("latitude")],
         }
-        
+
         if color_code == 'confidence':
             wildfire['color'] = get_color_from_confidence(row.get("confidence"))
             if isinstance(row.get("confidence"), str):
@@ -87,35 +119,42 @@ def convert_api_to_geojson(data, color_code):
             wildfire['color'] = get_color_from_frp(row.get("frp"))
 
         wildfires.append(wildfire)
+        if wildfire['color'] == "#cccccc":
+            has_no_data_color = True
 
-    legend_data_options = {
-        "confidence": {
-            "string": {
-                "Low": "#1f77b4",
-                "Nominal": "#ff7f0e",
-                "High": "#d62728"
-            },
-            "numeric": {
+    if wildfires:
+        legend_data_options = {
+            "confidence": {
+                "string": {
+                    "Low": "#1f77b4",
+                    "Nominal": "#ff7f0e",
+                    "High": "#d62728"
+                },
+                "numeric": {
+                    "<30": "#1f77b4",
+                    "<80": "#ff7f0e",
+                    ">=80": "#d62728"
+                }
+            }, 
+            "frp": {
+                "<10": "#33a02c",
                 "<30": "#1f77b4",
-                "<80": "#ff7f0e",
-                ">=80": "#d62728"
+                "<50": "#ff7f0e",
+                ">=50": "#d62728"
             }
-        }, 
-        "frp": {
-            "<10": "#a6cee3",
-            "<30": "#1f78b4",
-            "<50": "#fb9a99",
-            ">=50": "#e31a1c"
         }
-    }
 
-    if color_code == "confidence":
-        legend_data = legend_data_options[color_code][type_of_confidence]
-    else:
-        legend_data = legend_data_options[color_code]
+        if color_code == "confidence":
+            legend_data = legend_data_options[color_code][type_of_confidence]
+        else:
+            legend_data = legend_data_options[color_code]
 
-    legend_title = "Confidence" if color_code == "confidence" else "Fire Radiative Power (FRP)"
-    return {"wildfires": wildfires}, {"title": legend_title, "legend_data": legend_data}
+        if has_no_data_color:
+            legend_data["N/A"] = "#cccccc"
+
+        legend_title = "Confidence" if color_code == "confidence" else "Fire Radiative Power (FRP)"
+        return {"wildfires": wildfires}, {"title": legend_title, "legend_data": legend_data}
+    return {"wildfires": []}, {}
 
 @controller(name='home')
 class WildfireVisualizerMap(MapLayout):
@@ -135,11 +174,11 @@ class WildfireVisualizerMap(MapLayout):
             name='satellite',
             multiple=False,
             options=[
-                ('LANDSAT (NRT) [US/Canada Only]', 'LANDSAT_NRT'),
                 ('MODIS (URT+NRT)', 'MODIS_NRT'),
                 ('VIIRS NOAA-20 (URT+NRT)', 'VIIRS_NOAA20_NRT'),
                 ('VIIRS NOAA-21 (URT+NRT)', 'VIIRS_NOAA21_NRT'),
                 ('VIIRS S-NPP (URT+NRT)', 'VIIRS_SNPP_NRT'),
+                ('LANDSAT (NRT) [US/Canada Only]', 'LANDSAT_NRT'),
             ]
          )
 

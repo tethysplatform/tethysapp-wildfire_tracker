@@ -24,3 +24,8 @@
     height: 200px;
     margin-bottom: 50%;
 }
+
+#popup-content {
+    max-height: 250px;
+    overflow-y: auto;
+}
