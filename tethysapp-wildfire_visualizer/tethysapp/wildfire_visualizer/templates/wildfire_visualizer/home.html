@@ -13,12 +13,14 @@
   </div>
 {% endblock %}
 
-{% block custom_map_tab_panels %}
-  <div class="tab-panel show" id="form-tab-panel" role="tabpanel" aria-labelledby="form-tab-toggle">
+{% block map_tabs %}
+{% endblock %}
+
+{% block map_tab_panels %}
+<div class="tab-panel show" id="form-tab-panel" role="tabpanel" aria-labelledby="form-tab-toggle">
     <div id="form-container">
       <br>
       <form id="update-form" method="POST">
-        <h3>Wildfire Parameters</h3>
         {% csrf_token %}
         {% gizmo SelectInput satellite %}
         {% gizmo SelectInput days %}
