@@ -42,6 +42,8 @@ $(document).ready(function () {
     $popupContainer = $("#popup");
     $popupContent = $("#popup-content");
 
+    
+
     $updateForm.on('submit', function (event) {
         event.preventDefault();
         let formData = new FormData(this);
@@ -160,4 +162,7 @@ $(document).ready(function () {
             $popupContainer.hide();
         }
     })
+    
+    // Trigger the form submission once upon page load
+    $updateForm[0].dispatchEvent(new Event('submit', {cancelable: true})); 
 });

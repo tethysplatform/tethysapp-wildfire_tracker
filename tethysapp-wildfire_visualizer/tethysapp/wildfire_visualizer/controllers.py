@@ -186,9 +186,10 @@ class WildfireVisualizerMap(MapLayout):
             display_text='Days',
             name='days',
             multiple=False,
-            options=[(str(i), str(i)) for i in range(1, 11)]
+            options=[(str(i), str(i)) for i in range(1, 11)],
+            initial = '3'
         )
-
+ 
         date = DatePicker(
             display_text='Date',
             name='date',
