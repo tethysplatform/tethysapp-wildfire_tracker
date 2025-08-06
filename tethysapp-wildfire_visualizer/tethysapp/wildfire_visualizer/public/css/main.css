@@ -29,3 +29,15 @@
     max-height: 250px;
     overflow-y: auto;
 }
+
+.info-modal-text-box {
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 10px 15px;
+    margin-bottom: 10px;
+    background-color: #f8f9fa; 
+}
+
+.info-modal-text-box p {
+    margin-bottom: 4px;
+}

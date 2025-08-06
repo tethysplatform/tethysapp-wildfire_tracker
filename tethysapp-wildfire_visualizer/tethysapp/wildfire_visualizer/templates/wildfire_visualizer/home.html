@@ -2,6 +2,12 @@
 {% load static %}
 {% load tethys %}
 
+{% block header_buttons %}
+  <div class="header-button">
+    <a data-bs-toggle="modal" data-bs-target="#infoModal"><i class="bi bi-info"></i></a>
+  </div>
+{% endblock %}
+
 {% block app_content %}
   {{ block.super }}
   <div id="popup" class="ol-popup">
@@ -29,6 +35,31 @@
         {% gizmo Button submit_button %}
       </form>
       
+    </div>
+  </div>
+{% endblock %}
+
+{% block after_app_content %}
+  <div class="modal fade" id="infoModal" tabindex="-1" aria-labelledby="infoModalLabel" aria-hidden="true" data-bs-backdrop="false">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="infoModalLabel">Wildfire Visualizer Information</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="info-modal-text-box">
+            <p>This application visualizes wildfire data using the FIRMS API from NASA.</p>
+            <p><a href="https://firms.modaps.eosdis.nasa.gov/api/">Learn more about the FIRMS API</a>.</p>
+          </div>
+          <div class="info-modal-text-box">
+            <p>Use the form to select the satellite, number of days, date, and color coding options to customize the displayed data.</p>
+          </div>
+          <div class="info-modal-text-box">
+            <p>View the <a href="https://github.com/tethysplatform/tethysapp-wildfire_tracker">source code on GitHub</a>.</p>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 {% endblock %}
